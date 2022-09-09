@@ -1,0 +1,9 @@
+influxdb-client==1.20.0
+paramiko==2.7.2
+pycparser==2.21
+pymongo==4.2.0
+pysftp
+requests==2.22.0
+urllib3==1.25.8
+Flask==2.2.2
+Flask-PyMongo==2.3.0

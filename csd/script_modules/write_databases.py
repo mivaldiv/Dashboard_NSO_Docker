@@ -4,6 +4,8 @@ import re
 from datetime import datetime
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
+import json
+from bson import json_util
 
 
 # You can generate a Token from the "Tokens Tab" in the UI, this is fix in this code, and docker compose for influxdb and grafana
@@ -13,7 +15,6 @@ influx_db_info  = ('css','cisco')
 
 # MongoDB information
 mongo_myclient = pymongo.MongoClient('mongodb://mongodb_css:27017/')
-mongo_database = mongo_myclient['nso_info']
 
 
 def write_to_influx(var_type, var_summary):
@@ -110,10 +111,38 @@ def write_to_influx(var_type, var_summary):
 def write_to_mongodb(var_type, mongo_info):
     try:
         if var_type == 'nso_changes':
+            mongo_database = mongo_myclient['nso_info']
             mongo_collection = mongo_database['change_info']
             x = mongo_collection.insert_many(mongo_info)
             #my_logger.warning(f"{x.inserted_ids}")
         return 'ok'
+
+        # Write "raw" ptrace information in mongodb
+        if var_type == 'db_raw_info':
+            mongo_database = mongo_myclient['nso_raw']
+            mongo_collection = mongo_database['ptrace_info']
+            for i in mongo_info[0]:
+                #Look for a matching in the new transaction_id with the mongodb
+                #if found the all_info is added in the mongodb / if not add the full information in mongodb
+                mongo_data = mongo_collection.find({'transaction_id': i['transaction_id']})
+                response = json_util.dumps(mongo_data)
+                response = json.loads(response)
+                if len(response) != 0:
+                    for s in i['all_info']:
+                        mongo_collection.find_one_and_update({'transaction_id' : i['transaction_id']},
+                                                            {'$push': {'all_info': s}})
+                else:
+                    mongo_collection.insert_one(i)
+
+            response_info = []
+            for i in mongo_info[1]:
+                response = mongo_collection.find({'day':i})
+                response = json_util.dumps(response)
+                response = json.loads(response)
+                for n in response:
+                    response_info.append(n)
+
+            return response_info, mongo_info[1]
 
     except Exception as e:
         return f'fail: {e}'

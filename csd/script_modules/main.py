@@ -75,7 +75,13 @@ def information_analysis():
         files_info[0] = info_analysis.convert_dates()
     else:
         files_info = get_files.get_files()
-    progress_info = info_analysis.analyze_progress_info(files_info[0])
+    
+    # progress_info is a list, the first element is a dictionary with ptrace information and change_days
+    progress_info = info_analysis.process_progress_info(files_info[0])
+    progress_info_db, change_days = write_databases.write_to_mongodb('db_raw_info', progress_info)
+    #my_logger.error(f"{write_databases.write_to_mongodb('db_raw_info', progress_info)}")
+
+    progress_info = info_analysis.analyze_progress_info(progress_info_db, change_days)
     my_logger.error(f"{write_databases.write_to_influx('ptrace', progress_info)}")
 
     network_audit = info_analysis.analyze_audit(files_info[1], progress_info[7])

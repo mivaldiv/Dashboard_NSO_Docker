@@ -2,6 +2,7 @@
 
 import csv
 from datetime import datetime
+import json
 
 class ptrace_object:
     '''
@@ -46,8 +47,8 @@ class ptrace_object:
             if n['PHASE'] == 'commit':
                 self.commit = True
 
-        self.device_list = set(self.device_list)
-        self.service_list = set(self.service_list)
+        self.device_list = list(dict.fromkeys(self.device_list))
+        self.service_list = list(dict.fromkeys(self.service_list))
         self.device_number = len(self.device_list)
         self.service_number = len(self.service_list)
         self.timestamp = n['TIMESTAMP'][:10]
@@ -98,7 +99,7 @@ def convert_dates():
     return records
 
 
-def analyze_progress_info(info):
+def process_progress_info(info):
     '''
     Create object for each transaction-id.
     Each object will have timestamp, type, context, device_list, service_list.
@@ -125,7 +126,39 @@ def analyze_progress_info(info):
     for m in range(len(objects_ptrace)):
         objects_ptrace[m].services_ptrace()
 
-    timestamp_list = []
+    change_days = []
+
+    for m in objects_ptrace:
+        change_days.append(m.timestamp)
+    
+    change_days = list(dict.fromkeys(change_days))
+
+    ptrace_dict = []
+
+    for i in objects_ptrace:
+        ptrace_dict.append({
+            'transaction_id': i.transaction_id,
+            'ini_timestamp': i.ini_timestamp,
+            'day': i.timestamp,
+            'all_info': i.all_info,
+            'type': i.type,
+            'context': i.context,
+            'duration': i.duration,
+            'device_list': i.device_list,
+            'device_number': i.device_number,
+            'service_list': i.service_list,
+            'service_number': i.service_number,
+            'commit': i.commit})
+
+    result = [ptrace_dict, change_days]
+    return result
+    
+
+def analyze_progress_info(info):
+
+    # In this section we create the different tables that will be writen in influxdb
+    # This information is displayed in Grafana
+
     type_dev_count = {}
     context_dev_count = {}
     type_serv_count = {}
@@ -137,18 +170,7 @@ def analyze_progress_info(info):
     ptrace_type_date = {}
     ptrace_context_date = {}
 
-
-
-    for m in objects_ptrace:
-        timestamp_list.append(m.timestamp)
-    
-    timestamp_list = set(timestamp_list)
-
-    today = datetime.today()
-    format = "%Y-%m-%d"
-    today = today.strftime(format)
-
-    for i in timestamp_list:
+    for i in change_days:
         objects_ptrace_type[i] = []
         objects_ptrace_context[i] = []
         type_dev_count[i] = {}
@@ -157,10 +179,10 @@ def analyze_progress_info(info):
         context_serv_count[i] = {}
         duration_time[i] =[] 
 
-    for m in objects_ptrace:
-        objects_ptrace_type[m.timestamp].append(m.type)
-        objects_ptrace_context[m.timestamp].append(m.context)
-        duration_time[m.timestamp].append({'transaction_id':m.transaction_id,'duration':float(m.duration),'type':m.type,'context':m.context,'device_list':m.device_list,'service_list':m.service_list})
+    for m in info:
+        objects_ptrace_type[m['day']].append(m['type'])
+        objects_ptrace_context[m['day']].append(m['context'])
+        duration_time[m['day']].append({'transaction_id':m['transaction_id'],'duration':float(m['duration']),'type':m['type'],'context':m['context'],'device_list':m['device_list'],'service_list':m['service_list']})
 
     for k, m in objects_ptrace_type.items():
         ptrace_type_date[k] = {i:m.count(i) for i in m}
@@ -168,36 +190,24 @@ def analyze_progress_info(info):
     for k, m in objects_ptrace_context.items():
         ptrace_context_date[k] = {i:m.count(i) for i in m}
 
-
     for k, m in ptrace_type_date.items():
         for i in m.keys():
             type_dev_count[k][i] = 0
             type_serv_count[k][i] = 0
-
-    for m in objects_ptrace:
-        if m.commit:
-            type_dev_count[m.timestamp][m.type] = type_dev_count[m.timestamp][m.type] + m.device_number
-
-    for m in objects_ptrace:
-        if m.commit:
-            type_serv_count[m.timestamp][m.type] = type_serv_count[m.timestamp][m.type] + m.service_number
 
     for k, m in ptrace_context_date.items():
         for i in m.keys():
             context_dev_count[k][i] = 0
             context_serv_count[k][i] = 0
 
-    for m in objects_ptrace:
-        if m.commit:
-            context_dev_count[m.timestamp][m.context] = context_dev_count[m.timestamp][m.context] + m.device_number
+    for m in info:
+        if m['commit']:
+            type_dev_count[m['day']][m['type']] = type_dev_count[m['day']][m['type']] + m['device_number']
+            type_serv_count[m['day']][m['type']] = type_serv_count[m['day']][m['type']] + m['service_number']
+            context_dev_count[m['day']][m['context']] = context_dev_count[m['day']][m['context']] + m['device_number']
+            context_serv_count[m['day']][m['context']] = context_serv_count[m['day']][m['context']] + m['service_number']
 
-    for m in objects_ptrace:
-        if m.commit:
-            context_serv_count[m.timestamp][m.context] = context_serv_count[m.timestamp][m.context] + m.service_number
-
-    
-
-    tables_ptrace = [ptrace_type_date,ptrace_context_date,type_dev_count,context_dev_count,type_serv_count, context_serv_count, duration_time, objects_ptrace]
+    tables_ptrace = [ptrace_type_date,ptrace_context_date,type_dev_count,context_dev_count,type_serv_count, context_serv_count, duration_time, info]
 
     '''
     ptrace_type_date: Dictionary, the key is the date and the info has the transaction type (sync-from, check-sync, applying_transaction, restconf_get, etc) and the number of each one
@@ -219,6 +229,7 @@ def analyze_audit(info, ptrace):
     '''
     file_audit = []
     transactions_list = []
+
     for i in info:
         if '<INFO>' in i:
             detail = i.split()
@@ -228,8 +239,8 @@ def analyze_audit(info, ptrace):
             transaction_id = detail[8]
             device = detail[12]
             for n in ptrace:
-                if n.transaction_id == transaction_id:
-                    ini_timestamp = n.ini_timestamp
+                if n['transaction_id'] == transaction_id:
+                    ini_timestamp = n['ini_timestamp']
         elif 'BEGIN EDIT' in i:
             config = []
         elif 'END EDIT' in i:
@@ -259,7 +270,6 @@ def analyze_audit(info, ptrace):
                 transactions_list.append(transaction_id)
         else:
             config.append(i.replace('\n',''))
-
 
     return file_audit
 

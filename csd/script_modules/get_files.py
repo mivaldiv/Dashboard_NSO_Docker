@@ -29,8 +29,8 @@ def get_files():
         stdin, stdout, stderr = client.exec_command('cp ' + file_path_nso + 'logs/audit-network.log ' + file_path_nso + 'logs/audit-network_' + file_date + '.log')
         output_err = stderr.read().decode().strip()
         if output_err == '':
-            #stdin, stdout, stderr = client.exec_command('rm /home/lsse/ncs-run/logs/ptrace.csv')
-            client.close()
+            stdin, stdout, stderr = client.exec_command('echo ' + 'EVENT TYPE,TIMESTAMP,DURATION,SESSION ID,TRANSACTION ID,DATASTORE,CONTEXT,SUBSYSTEM,PHASE,SERVICE,SERVICE PHASE,COMMIT QUEUE ID,NODE,DEVICE,DEVICE PHASE,PACKAGE,MESSAGE,ANNOTATION > ' + file_path_nso + 'logs/ptrace.csv')
+            stdin, stdout, stderr = client.exec_command('> ' + file_path_nso + 'logs/audit-network.log')
             client.close()
             cnopts = pysftp.CnOpts()
             cnopts.hostkeys = None   

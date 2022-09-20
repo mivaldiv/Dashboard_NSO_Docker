@@ -77,14 +77,20 @@ def information_analysis():
         files_info = get_files.get_files()
     
     # progress_info is a list, the first element is a dictionary with ptrace information and change_days
+    print("------ Start process_progress_info ------")
     progress_info = info_analysis.process_progress_info(files_info[0])
+    print("------ Start write_databases.write_to_mongodb('db_raw_info', progress_info) ------")
     progress_info_db, change_days = write_databases.write_to_mongodb('db_raw_info', progress_info)
     #my_logger.error(f"{write_databases.write_to_mongodb('db_raw_info', progress_info)}")
 
+    print("------ Start info_analysis.analyze_progress_info ------")
     progress_info = info_analysis.analyze_progress_info(progress_info_db, change_days)
+    print("------ Start write_databases.write_to_influx ------")
     my_logger.error(f"{write_databases.write_to_influx('ptrace', progress_info)}")
 
+    print("------ Start info_analysis.analyze_audit ------")
     network_audit = info_analysis.analyze_audit(files_info[1], progress_info[7])
+    print("------ Start write_databases.write_to_mongodb('nso_changes', network_audit) ------")
     my_logger.error(f"{write_databases.write_to_mongodb('nso_changes', network_audit)}")
 
 
@@ -119,6 +125,7 @@ def main():
         services_info(conditions[1])
         changes_info()
         licenses_info()
+        print("------ information_analysis ------")
         information_analysis()
 
     except Exception as e:

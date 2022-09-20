@@ -45,7 +45,9 @@ services:
     csd:
       build:
         context: ./csd
-      container_name: csd        
+      container_name: csd
+      stdin_open: true
+      tty: true    
       depends_on:
         - influxdb
         - grafana

@@ -115,7 +115,7 @@ def write_to_mongodb(var_type, mongo_info):
             mongo_collection = mongo_database['change_info']
             x = mongo_collection.insert_many(mongo_info)
             #my_logger.warning(f"{x.inserted_ids}")
-        return 'ok'
+            return 'ok'
 
         # Write "raw" ptrace information in mongodb
         if var_type == 'db_raw_info':

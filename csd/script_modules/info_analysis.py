@@ -154,10 +154,16 @@ def process_progress_info(info):
     return result
     
 
-def analyze_progress_info(info):
+def analyze_progress_info(info, change_days):
+    '''
+    Create object for each transaction-id.
+    Each object will have timestamp, type, context, device_list, service_list.
+    '''
 
-    # In this section we create the different tables that will be writen in influxdb
-    # This information is displayed in Grafana
+    '''
+    In this function we get all the information for each Transaction ID
+    The objects_ptrace has transaction_id and all_info where we have all the entries related with that transaction_id
+    '''
 
     type_dev_count = {}
     context_dev_count = {}
@@ -169,6 +175,7 @@ def analyze_progress_info(info):
 
     ptrace_type_date = {}
     ptrace_context_date = {}
+
 
     for i in change_days:
         objects_ptrace_type[i] = []
@@ -190,6 +197,7 @@ def analyze_progress_info(info):
     for k, m in objects_ptrace_context.items():
         ptrace_context_date[k] = {i:m.count(i) for i in m}
 
+
     for k, m in ptrace_type_date.items():
         for i in m.keys():
             type_dev_count[k][i] = 0
@@ -207,6 +215,9 @@ def analyze_progress_info(info):
             context_dev_count[m['day']][m['context']] = context_dev_count[m['day']][m['context']] + m['device_number']
             context_serv_count[m['day']][m['context']] = context_serv_count[m['day']][m['context']] + m['service_number']
 
+
+
+
     tables_ptrace = [ptrace_type_date,ptrace_context_date,type_dev_count,context_dev_count,type_serv_count, context_serv_count, duration_time, info]
 
     '''
@@ -220,6 +231,7 @@ def analyze_progress_info(info):
     '''
 
     return tables_ptrace
+
 
 
 def analyze_audit(info, ptrace):

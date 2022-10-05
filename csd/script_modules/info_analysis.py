@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 class ptrace_object:
@@ -52,7 +52,8 @@ class ptrace_object:
         self.device_number = len(self.device_list)
         self.service_number = len(self.service_list)
         self.timestamp = n['TIMESTAMP'][:10]
-        self.duration = n['DURATION']
+        diff_time = datetime.strptime(n['TIMESTAMP'], '%Y-%m-%dT%H:%M:%S.%f') - datetime.strptime(self.ini_timestamp, '%Y-%m-%dT%H:%M:%S.%f') 
+        self.duration = diff_time.total_seconds()
 
 
 def convert_dates():
@@ -136,6 +137,10 @@ def process_progress_info(info):
     ptrace_dict = []
 
     for i in objects_ptrace:
+        if i.duration == '':
+            print (i)
+
+    for i in objects_ptrace:
         ptrace_dict.append({
             'transaction_id': i.transaction_id,
             'ini_timestamp': i.ini_timestamp,
@@ -189,6 +194,8 @@ def analyze_progress_info(info, change_days):
     for m in info:
         objects_ptrace_type[m['day']].append(m['type'])
         objects_ptrace_context[m['day']].append(m['context'])
+        if m['duration'] == '':
+            print(m)
         duration_time[m['day']].append({'transaction_id':m['transaction_id'],'duration':float(m['duration']),'type':m['type'],'context':m['context'],'device_list':m['device_list'],'service_list':m['service_list']})
 
     for k, m in objects_ptrace_type.items():
@@ -231,7 +238,6 @@ def analyze_progress_info(info, change_days):
     '''
 
     return tables_ptrace
-
 
 
 def analyze_audit(info, ptrace):

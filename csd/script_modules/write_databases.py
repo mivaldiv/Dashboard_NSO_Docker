@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import pymongo
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 import json
@@ -131,6 +131,9 @@ def write_to_mongodb(var_type, mongo_info):
                     for s in i['all_info']:
                         mongo_collection.find_one_and_update({'transaction_id' : i['transaction_id']},
                                                             {'$push': {'all_info': s}})
+                    diff_time = datetime.strptime(s['TIMESTAMP'], '%Y-%m-%dT%H:%M:%S.%f') - datetime.strptime(response['ini_timestamp', '%Y-%m-%dT%H:%M:%S.%f']) 
+                    mongo_collection.find_one_and_update({'transaction_id' : i['transaction_id']},
+                                                            {'$push': {'duration': diff_time.total_seconds}})
                 else:
                     mongo_collection.insert_one(i)
 
